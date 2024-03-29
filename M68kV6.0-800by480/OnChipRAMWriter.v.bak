@@ -1,0 +1,23 @@
+module OnChipRAMWriter(
+    input cs,
+    input UDS_L,
+    input LDS_L,
+    input WE_L,
+    input AS_L,
+    output OE_U,
+    output OE_L,
+    output WREN_U,
+    output WREN_L
+);
+
+wire ram_selector;
+
+assign ram_selector = AS_L ? 0 : (WE_L ? 0 : cs);
+
+assign WREN_U = ram_selector & UDS_L;
+assign WREN_L = ram_selector & LDS_L;
+
+assign OE_U = UDS_L & WE_L & cs;
+assign OE_L = LDS_L & WE_L & cs;
+
+endmodule

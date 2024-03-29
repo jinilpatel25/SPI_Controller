@@ -1,0 +1,1865 @@
+680x0 MACRO ASSEMBLER   Version 5.00   (c) 1992-2005 Peter J. Fondse
+
+Date: 01 Mar 2024      Time: 12:30:57          Source: C:\USERS\ADMIN\DESKTOP\ASSIGNMENT3\SPI_CONTROLLER\FIRMWARE\OUTPUT\MEM_TEST.SRC
+
+                       1          section   code
+                       2   **********************************************************************************************************
+                       3   * CSTART.ASM  -  C startup-code
+                       4   *
+                       5   *          Initialises the system prior to running the users main() program
+                       6   *
+                       7   *          1) Sets up the user program stack pointer
+                       8   *          2) Switches to User mode in the 68000
+                       9   *          3) Enables All Interrupts 1-7 on 68000
+                      10   *          4) Copies all initialised C program variables from Rom to Ram prior to running main()
+                      11   *
+                      12   **********************************************************************************************************
+00000000              13                   align
+                      14   
+                      15   
+                      16   **********************************************************************************************************
+                      17   * The Following ORG Statement marks the address of the start of the this CStart Program
+                      18   *
+                      19   * The debug Monitor and Flash Load and Program routines assume your program lives here
+                      20   **********************************************************************************************************
+08000000              21                   org       $08000000
+08000000  46FC 2000   22   start:          move.w    #$2000,SR             clear interrupts to enable all, move to supervisor mode
+                      23   
+                      24   ******************************************************************************************
+                      25   * Set unitialised global variables to 0 at startup
+                      26   ******************************************************************************************
+08000004  207C 0800   27   mainloop        movea.l   #BssStart,a0          point a0 to the start of the initialised data section held in ROM
+08000008  0E2C      
+0800000A  203C 0000   28                   move.l    #BssLength,d0         figure out how many bytes of C program variables data to copy
+0800000E  0044      
+08000010  6700 0024   29                   beq       go_main               if no data to copy go straight to program
+08000014  10FC 0000   30   Zeroinit        move.b    #0,(a0)+              copy the C program initialise variables from rom to ram
+08000018  5380        31                   subq.l    #1,d0
+0800001A  66F8        32                   bne       Zeroinit
+                      33   
+                      34   *******************************************************************************************
+                      35   * last minute initialisation before calling main
+                      36   *******************************************************************************************
+                      37   
+0800001C  23FC FFFF   38                   move.l    #-1,__ungetbuf         required for use of scanf() etc in C programs
+08000020  FFFF 0800 
+08000024  0E20      
+08000026  42B9 0800   39                   clr.l     __allocp               used by malloc() in C
+0800002A  0E24      
+0800002C  23FC 0800   40                   move.l    #heap,__heap           pointer to free memory
+08000030  0E70 0800 
+08000034  0E28      
+08000036  4EB9 0800   41   go_main         jsr       _main
+0800003A  0288      
+0800003C  60C2        42                   bra       start
+                      43   
+                      44   ; C:\USERS\ADMIN\DESKTOP\ASSIGNMENT1\SRAM_CONTROLLER\FIRMWARE\MEMORY_TEST.C - Compiled by CC68K  Version 5.00 (c) 1991-2005  Peter J. Fondse
+                      45   ; #include <stdio.h>
+                      46   ; #include <string.h>
+                      47   ; #include <ctype.h>
+                      48   ; //IMPORTANT
+                      49   ; //
+                      50   ; // Uncomment one of the two #defines below
+                      51   ; // Define StartOfExceptionVectorTable as 08030000 if running programs from sram or
+                      52   ; // 0B000000 for running programs from dram
+                      53   ; //
+                      54   ; // In your labs, you will initially start by designing a system with SRam and later move to
+                      55   ; // Dram, so these constants will need to be changed based on the version of the system you have
+                      56   ; // building
+                      57   ; //
+                      58   ; // The working 68k system SOF file posted on canvas that you can use for your pre-lab
+                      59   ; // is based around Dram so #define accordingly before building
+                      60   ; //define StartOfExceptionVectorTable 0x08030000
+                      61   ; #define StartOfExceptionVectorTable 0x0B000000
+                      62   ; /**********************************************************************************************
+                      63   ; **	Parallel port addresses
+                      64   ; **********************************************************************************************/
+                      65   ; #define PortA   *(volatile unsigned char *)(0x00400000)
+                      66   ; #define PortB   *(volatile unsigned char *)(0x00400002)
+                      67   ; #define PortC   *(volatile unsigned char *)(0x00400004)
+                      68   ; #define PortD   *(volatile unsigned char *)(0x00400006)
+                      69   ; #define PortE   *(volatile unsigned char *)(0x00400008)
+                      70   ; /*********************************************************************************************
+                      71   ; **	Hex 7 seg displays port addresses
+                      72   ; *********************************************************************************************/
+                      73   ; #define HEX_A        *(volatile unsigned char *)(0x00400010)
+                      74   ; #define HEX_B        *(volatile unsigned char *)(0x00400012)
+                      75   ; #define HEX_C        *(volatile unsigned char *)(0x00400014)    // de2 only
+                      76   ; #define HEX_D        *(volatile unsigned char *)(0x00400016)    // de2 only
+                      77   ; /**********************************************************************************************
+                      78   ; **	LCD display port addresses
+                      79   ; **********************************************************************************************/
+                      80   ; #define LCDcommand   *(volatile unsigned char *)(0x00400020)
+                      81   ; #define LCDdata      *(volatile unsigned char *)(0x00400022)
+                      82   ; /********************************************************************************************
+                      83   ; **	Timer Port addresses
+                      84   ; *********************************************************************************************/
+                      85   ; #define Timer1Data      *(volatile unsigned char *)(0x00400030)
+                      86   ; #define Timer1Control   *(volatile unsigned char *)(0x00400032)
+                      87   ; #define Timer1Status    *(volatile unsigned char *)(0x00400032)
+                      88   ; #define Timer2Data      *(volatile unsigned char *)(0x00400034)
+                      89   ; #define Timer2Control   *(volatile unsigned char *)(0x00400036)
+                      90   ; #define Timer2Status    *(volatile unsigned char *)(0x00400036)
+                      91   ; #define Timer3Data      *(volatile unsigned char *)(0x00400038)
+                      92   ; #define Timer3Control   *(volatile unsigned char *)(0x0040003A)
+                      93   ; #define Timer3Status    *(volatile unsigned char *)(0x0040003A)
+                      94   ; #define Timer4Data      *(volatile unsigned char *)(0x0040003C)
+                      95   ; #define Timer4Control   *(volatile unsigned char *)(0x0040003E)
+                      96   ; #define Timer4Status    *(volatile unsigned char *)(0x0040003E)
+                      97   ; /*********************************************************************************************
+                      98   ; **	RS232 port addresses
+                      99   ; *********************************************************************************************/
+                     100   ; #define RS232_Control     *(volatile unsigned char *)(0x00400040)
+                     101   ; #define RS232_Status      *(volatile unsigned char *)(0x00400040)
+                     102   ; #define RS232_TxData      *(volatile unsigned char *)(0x00400042)
+                     103   ; #define RS232_RxData      *(volatile unsigned char *)(0x00400042)
+                     104   ; #define RS232_Baud        *(volatile unsigned char *)(0x00400044)
+                     105   ; /*********************************************************************************************
+                     106   ; **	PIA 1 and 2 port addresses
+                     107   ; *********************************************************************************************/
+                     108   ; #define PIA1_PortA_Data     *(volatile unsigned char *)(0x00400050)         // combined data and data direction register share same address
+                     109   ; #define PIA1_PortA_Control *(volatile unsigned char *)(0x00400052)
+                     110   ; #define PIA1_PortB_Data     *(volatile unsigned char *)(0x00400054)         // combined data and data direction register share same address
+                     111   ; #define PIA1_PortB_Control *(volatile unsigned char *)(0x00400056)
+                     112   ; #define PIA2_PortA_Data     *(volatile unsigned char *)(0x00400060)         // combined data and data direction register share same address
+                     113   ; #define PIA2_PortA_Control *(volatile unsigned char *)(0x00400062)
+                     114   ; #define PIA2_PortB_data     *(volatile unsigned char *)(0x00400064)         // combined data and data direction register share same address
+                     115   ; #define PIA2_PortB_Control *(volatile unsigned char *)(0x00400066)
+                     116   ; /*********************************************************************************************************************************
+                     117   ; (( DO NOT initialise global variables here, do it main even if you want 0
+                     118   ; (( it's a limitation of the compiler
+                     119   ; (( YOU HAVE BEEN WARNED
+                     120   ; *********************************************************************************************************************************/
+                     121   ; unsigned int i, x, y, z, PortA_Count;
+                     122   ; unsigned char Timer1Count, Timer2Count, Timer3Count, Timer4Count ;
+                     123   ; /*******************************************************************************************
+                     124   ; ** Function Prototypes
+                     125   ; *******************************************************************************************/
+                     126   ; void Wait1ms(void);
+                     127   ; void Wait3ms(void);
+                     128   ; void Init_LCD(void) ;
+                     129   ; void LCDOutchar(int c);
+                     130   ; void LCDOutMess(char *theMessage);
+                     131   ; void LCDClearln(void);
+                     132   ; void LCDline1Message(char *theMessage);
+                     133   ; void LCDline2Message(char *theMessage);
+                     134   ; int sprintf(char *out, const char *format, ...) ;
+                     135   ; /*****************************************************************************************
+                     136   ; **	Interrupt service routine for Timers
+                     137   ; **
+                     138   ; **  Timers 1 - 4 share a common IRQ on the CPU  so this function uses polling to figure
+                     139   ; **  out which timer is producing the interrupt
+                     140   ; **
+                     141   ; *****************************************************************************************/
+                     142   ; void Timer_ISR()
+                     143   ; {
+                     144   _Timer_ISR:
+                     145   ; if(Timer1Status == 1) {         // Did Timer 1 produce the Interrupt?
+0800003E  1039 0040  146          move.b    4194354,D0
+08000042  0032      
+08000044  0C00 0001  147          cmp.b     #1,D0
+08000048  661A       148          bne.s     Timer_ISR_1
+                     149   ; Timer1Control = 3;      	// reset the timer to clear the interrupt, enable interrupts and allow counter to run
+0800004A  13FC 0003  150          move.b    #3,4194354
+0800004E  0040 0032 
+                     151   ; PortA = Timer1Count++ ;     // increment an LED count on PortA with each tick of Timer 1
+08000052  1039 0800  152          move.b    _Timer1Count.L,D0
+08000056  0E40      
+08000058  5239 0800  153          addq.b    #1,_Timer1Count.L
+0800005C  0E40      
+0800005E  13C0 0040  154          move.b    D0,4194304
+08000062  0000      
+                     155   Timer_ISR_1:
+                     156   ; }
+                     157   ; if(Timer2Status == 1) {         // Did Timer 2 produce the Interrupt?
+08000064  1039 0040  158          move.b    4194358,D0
+08000068  0036      
+0800006A  0C00 0001  159          cmp.b     #1,D0
+0800006E  661A       160          bne.s     Timer_ISR_3
+                     161   ; Timer2Control = 3;      	// reset the timer to clear the interrupt, enable interrupts and allow counter to run
+08000070  13FC 0003  162          move.b    #3,4194358
+08000074  0040 0036 
+                     163   ; PortC = Timer2Count++ ;     // increment an LED count on PortC with each tick of Timer 2
+08000078  1039 0800  164          move.b    _Timer2Count.L,D0
+0800007C  0E42      
+0800007E  5239 0800  165          addq.b    #1,_Timer2Count.L
+08000082  0E42      
+08000084  13C0 0040  166          move.b    D0,4194308
+08000088  0004      
+                     167   Timer_ISR_3:
+                     168   ; }
+                     169   ; if(Timer3Status == 1) {         // Did Timer 3 produce the Interrupt?
+0800008A  1039 0040  170          move.b    4194362,D0
+0800008E  003A      
+08000090  0C00 0001  171          cmp.b     #1,D0
+08000094  661A       172          bne.s     Timer_ISR_5
+                     173   ; Timer3Control = 3;      	// reset the timer to clear the interrupt, enable interrupts and allow counter to run
+08000096  13FC 0003  174          move.b    #3,4194362
+0800009A  0040 003A 
+                     175   ; HEX_A = Timer3Count++ ;     // increment a HEX count on Port HEX_A with each tick of Timer 3
+0800009E  1039 0800  176          move.b    _Timer3Count.L,D0
+080000A2  0E44      
+080000A4  5239 0800  177          addq.b    #1,_Timer3Count.L
+080000A8  0E44      
+080000AA  13C0 0040  178          move.b    D0,4194320
+080000AE  0010      
+                     179   Timer_ISR_5:
+                     180   ; }
+                     181   ; if(Timer4Status == 1) {         // Did Timer 4 produce the Interrupt?
+080000B0  1039 0040  182          move.b    4194366,D0
+080000B4  003E      
+080000B6  0C00 0001  183          cmp.b     #1,D0
+080000BA  661A       184          bne.s     Timer_ISR_7
+                     185   ; Timer4Control = 3;      	// reset the timer to clear the interrupt, enable interrupts and allow counter to run
+080000BC  13FC 0003  186          move.b    #3,4194366
+080000C0  0040 003E 
+                     187   ; HEX_B = Timer4Count++ ;     // increment a HEX count on HEX_B with each tick of Timer 4
+080000C4  1039 0800  188          move.b    _Timer4Count.L,D0
+080000C8  0E46      
+080000CA  5239 0800  189          addq.b    #1,_Timer4Count.L
+080000CE  0E46      
+080000D0  13C0 0040  190          move.b    D0,4194322
+080000D4  0012      
+                     191   Timer_ISR_7:
+080000D6  4E75       192          rts
+                     193   ; }
+                     194   ; }
+                     195   ; /*****************************************************************************************
+                     196   ; **	Interrupt service routine for ACIA. This device has it's own dedicate IRQ level
+                     197   ; **  Add your code here to poll Status register and clear interrupt
+                     198   ; *****************************************************************************************/
+                     199   ; void ACIA_ISR()
+                     200   ; {}
+                     201   _ACIA_ISR:
+080000D8  4E75       202          rts
+                     203   ; /***************************************************************************************
+                     204   ; **	Interrupt service routine for PIAs 1 and 2. These devices share an IRQ level
+                     205   ; **  Add your code here to poll Status register and clear interrupt
+                     206   ; *****************************************************************************************/
+                     207   ; void PIA_ISR()
+                     208   ; {}
+                     209   _PIA_ISR:
+080000DA  4E75       210          rts
+                     211   ; /***********************************************************************************
+                     212   ; **	Interrupt service routine for Key 2 on DE1 board. Add your own response here
+                     213   ; ************************************************************************************/
+                     214   ; void Key2PressISR()
+                     215   ; {}
+                     216   _Key2PressISR:
+080000DC  4E75       217          rts
+                     218   ; /***********************************************************************************
+                     219   ; **	Interrupt service routine for Key 1 on DE1 board. Add your own response here
+                     220   ; ************************************************************************************/
+                     221   ; void Key1PressISR()
+                     222   ; {}
+                     223   _Key1PressISR:
+080000DE  4E75       224          rts
+                     225   ; /************************************************************************************
+                     226   ; **   Delay Subroutine to give the 68000 something useless to do to waste 1 mSec
+                     227   ; ************************************************************************************/
+                     228   ; void Wait1ms(void)
+                     229   ; {
+                     230   _Wait1ms:
+080000E0  2F02       231          move.l    D2,-(A7)
+                     232   ; int  i ;
+                     233   ; for(i = 0; i < 1000; i ++)
+080000E2  4282       234          clr.l     D2
+                     235   Wait1ms_1:
+080000E4  0C82 0000  236          cmp.l     #1000,D2
+080000E8  03E8      
+080000EA  6C04       237          bge.s     Wait1ms_3
+080000EC  5282       238          addq.l    #1,D2
+080000EE  60F4       239          bra       Wait1ms_1
+                     240   Wait1ms_3:
+080000F0  241F       241          move.l    (A7)+,D2
+080000F2  4E75       242          rts
+                     243   ; ;
+                     244   ; }
+                     245   ; /************************************************************************************
+                     246   ; **  Subroutine to give the 68000 something useless to do to waste 3 mSec
+                     247   ; **************************************************************************************/
+                     248   ; void Wait3ms(void)
+                     249   ; {
+                     250   _Wait3ms:
+080000F4  2F02       251          move.l    D2,-(A7)
+                     252   ; int i ;
+                     253   ; for(i = 0; i < 3; i++)
+080000F6  4282       254          clr.l     D2
+                     255   Wait3ms_1:
+080000F8  0C82 0000  256          cmp.l     #3,D2
+080000FC  0003      
+080000FE  6C0A       257          bge.s     Wait3ms_3
+                     258   ; Wait1ms() ;
+08000100  4EB9 0800  259          jsr       _Wait1ms
+08000104  00E0      
+08000106  5282       260          addq.l    #1,D2
+08000108  60EE       261          bra       Wait3ms_1
+                     262   Wait3ms_3:
+0800010A  241F       263          move.l    (A7)+,D2
+0800010C  4E75       264          rts
+                     265   ; }
+                     266   ; /*********************************************************************************************
+                     267   ; **  Subroutine to initialise the LCD display by writing some commands to the LCD internal registers
+                     268   ; **  Sets it for parallel port and 2 line display mode (if I recall correctly)
+                     269   ; *********************************************************************************************/
+                     270   ; void Init_LCD(void)
+                     271   ; {
+                     272   _Init_LCD:
+                     273   ; LCDcommand = 0x0c ;
+0800010E  13FC 000C  274          move.b    #12,4194336
+08000112  0040 0020 
+                     275   ; Wait3ms() ;
+08000116  4EB9 0800  276          jsr       _Wait3ms
+0800011A  00F4      
+                     277   ; LCDcommand = 0x38 ;
+0800011C  13FC 0038  278          move.b    #56,4194336
+08000120  0040 0020 
+                     279   ; Wait3ms() ;
+08000124  4EB9 0800  280          jsr       _Wait3ms
+08000128  00F4      
+0800012A  4E75       281          rts
+                     282   ; }
+                     283   ; /*********************************************************************************************
+                     284   ; **  Subroutine to initialise the RS232 Port by writing some commands to the internal registers
+                     285   ; *********************************************************************************************/
+                     286   ; void Init_RS232(void)
+                     287   ; {
+                     288   _Init_RS232:
+                     289   ; RS232_Control = 0x15 ; //  %00010101 set up 6850 uses divide by 16 clock, set RTS low, 8 bits no parity, 1 stop bit, transmitter interrupt disabled
+0800012C  13FC 0015  290          move.b    #21,4194368
+08000130  0040 0040 
+                     291   ; RS232_Baud = 0x1 ;      // program baud rate generator 001 = 115k, 010 = 57.6k, 011 = 38.4k, 100 = 19.2, all others = 9600
+08000134  13FC 0001  292          move.b    #1,4194372
+08000138  0040 0044 
+0800013C  4E75       293          rts
+                     294   ; }
+                     295   ; /*********************************************************************************************************
+                     296   ; **  Subroutine to provide a low level output function to 6850 ACIA
+                     297   ; **  This routine provides the basic functionality to output a single character to the serial Port
+                     298   ; **  to allow the board to communicate with HyperTerminal Program
+                     299   ; **
+                     300   ; **  NOTE you do not call this function directly, instead you call the normal putchar() function
+                     301   ; **  which in turn calls _putch() below). Other functions like puts(), printf() call putchar() so will
+                     302   ; **  call _putch() also
+                     303   ; *********************************************************************************************************/
+                     304   ; int _putch( int c)
+                     305   ; {
+                     306   __putch:
+0800013E  4E56 0000  307          link      A6,#0
+                     308   ; while((RS232_Status & (char)(0x02)) != (char)(0x02))    // wait for Tx bit in status register or 6850 serial comms chip to be '1'
+                     309   _putch_1:
+08000142  1039 0040  310          move.b    4194368,D0
+08000146  0040      
+08000148  C03C 0002  311          and.b     #2,D0
+0800014C  0C00 0002  312          cmp.b     #2,D0
+08000150  6702       313          beq.s     _putch_3
+08000152  60EE       314          bra       _putch_1
+                     315   _putch_3:
+                     316   ; ;
+                     317   ; RS232_TxData = (c & (char)(0x7f));                      // write to the data register to output the character (mask off bit 8 to keep it 7 bit ASCII)
+08000154  202E 0008  318          move.l    8(A6),D0
+08000158  C0BC 0000  319          and.l     #127,D0
+0800015C  007F      
+0800015E  13C0 0040  320          move.b    D0,4194370
+08000162  0042      
+                     321   ; return c ;                                              // putchar() expects the character to be returned
+08000164  202E 0008  322          move.l    8(A6),D0
+08000168  4E5E       323          unlk      A6
+0800016A  4E75       324          rts
+                     325   ; }
+                     326   ; /*********************************************************************************************************
+                     327   ; **  Subroutine to provide a low level input function to 6850 ACIA
+                     328   ; **  This routine provides the basic functionality to input a single character from the serial Port
+                     329   ; **  to allow the board to communicate with HyperTerminal Program Keyboard (your PC)
+                     330   ; **
+                     331   ; **  NOTE you do not call this function directly, instead you call the normal getchar() function
+                     332   ; **  which in turn calls _getch() below). Other functions like gets(), scanf() call getchar() so will
+                     333   ; **  call _getch() also
+                     334   ; *********************************************************************************************************/
+                     335   ; int _getch( void )
+                     336   ; {
+                     337   __getch:
+0800016C  4E56 FFFC  338          link      A6,#-4
+                     339   ; char c ;
+                     340   ; while((RS232_Status & (char)(0x01)) != (char)(0x01))    // wait for Rx bit in 6850 serial comms chip status register to be '1'
+                     341   _getch_1:
+08000170  1039 0040  342          move.b    4194368,D0
+08000174  0040      
+08000176  C03C 0001  343          and.b     #1,D0
+0800017A  0C00 0001  344          cmp.b     #1,D0
+0800017E  6702       345          beq.s     _getch_3
+08000180  60EE       346          bra       _getch_1
+                     347   _getch_3:
+                     348   ; ;
+                     349   ; return (RS232_RxData & (char)(0x7f));                   // read received character, mask off top bit and return as 7 bit ASCII character
+08000182  1039 0040  350          move.b    4194370,D0
+08000186  0042      
+08000188  C0BC 0000  351          and.l     #255,D0
+0800018C  00FF      
+0800018E  C0BC 0000  352          and.l     #127,D0
+08000192  007F      
+08000194  4E5E       353          unlk      A6
+08000196  4E75       354          rts
+                     355   ; }
+                     356   ; /******************************************************************************
+                     357   ; **  Subroutine to output a single character to the 2 row LCD display
+                     358   ; **  It is assumed the character is an ASCII code and it will be displayed at the
+                     359   ; **  current cursor position
+                     360   ; *******************************************************************************/
+                     361   ; void LCDOutchar(int c)
+                     362   ; {
+                     363   _LCDOutchar:
+08000198  4E56 0000  364          link      A6,#0
+                     365   ; LCDdata = (char)(c);
+0800019C  202E 0008  366          move.l    8(A6),D0
+080001A0  13C0 0040  367          move.b    D0,4194338
+080001A4  0022      
+                     368   ; Wait1ms() ;
+080001A6  4EB9 0800  369          jsr       _Wait1ms
+080001AA  00E0      
+080001AC  4E5E       370          unlk      A6
+080001AE  4E75       371          rts
+                     372   ; }
+                     373   ; /**********************************************************************************
+                     374   ; *subroutine to output a message at the current cursor position of the LCD display
+                     375   ; ************************************************************************************/
+                     376   ; void LCDOutMessage(char *theMessage)
+                     377   ; {
+                     378   _LCDOutMessage:
+080001B0  4E56 FFFC  379          link      A6,#-4
+                     380   ; char c ;
+                     381   ; while((c = *theMessage++) != 0)     // output characters from the string until NULL
+                     382   LCDOutMessage_1:
+080001B4  206E 0008  383          move.l    8(A6),A0
+080001B8  52AE 0008  384          addq.l    #1,8(A6)
+080001BC  1D50 FFFF  385          move.b    (A0),-1(A6)
+080001C0  1010       386          move.b    (A0),D0
+080001C2  6714       387          beq.s     LCDOutMessage_3
+                     388   ; LCDOutchar(c) ;
+080001C4  122E FFFF  389          move.b    -1(A6),D1
+080001C8  4881       390          ext.w     D1
+080001CA  48C1       391          ext.l     D1
+080001CC  2F01       392          move.l    D1,-(A7)
+080001CE  4EB9 0800  393          jsr       _LCDOutchar
+080001D2  0198      
+080001D4  584F       394          addq.w    #4,A7
+080001D6  60DC       395          bra       LCDOutMessage_1
+                     396   LCDOutMessage_3:
+080001D8  4E5E       397          unlk      A6
+080001DA  4E75       398          rts
+                     399   ; }
+                     400   ; /******************************************************************************
+                     401   ; *subroutine to clear the line by issuing 24 space characters
+                     402   ; *******************************************************************************/
+                     403   ; void LCDClearln(void)
+                     404   ; {
+                     405   _LCDClearln:
+080001DC  2F02       406          move.l    D2,-(A7)
+                     407   ; int i ;
+                     408   ; for(i = 0; i < 24; i ++)
+080001DE  4282       409          clr.l     D2
+                     410   LCDClearln_1:
+080001E0  0C82 0000  411          cmp.l     #24,D2
+080001E4  0018      
+080001E6  6C10       412          bge.s     LCDClearln_3
+                     413   ; LCDOutchar(' ') ;       // write a space char to the LCD display
+080001E8  4878 0020  414          pea       32
+080001EC  4EB9 0800  415          jsr       _LCDOutchar
+080001F0  0198      
+080001F2  584F       416          addq.w    #4,A7
+080001F4  5282       417          addq.l    #1,D2
+080001F6  60E8       418          bra       LCDClearln_1
+                     419   LCDClearln_3:
+080001F8  241F       420          move.l    (A7)+,D2
+080001FA  4E75       421          rts
+                     422   ; }
+                     423   ; /******************************************************************************
+                     424   ; **  Subroutine to move the LCD cursor to the start of line 1 and clear that line
+                     425   ; *******************************************************************************/
+                     426   ; void LCDLine1Message(char *theMessage)
+                     427   ; {
+                     428   _LCDLine1Message:
+080001FC  4E56 0000  429          link      A6,#0
+                     430   ; LCDcommand = 0x80 ;
+08000200  13FC 0080  431          move.b    #128,4194336
+08000204  0040 0020 
+                     432   ; Wait3ms();
+08000208  4EB9 0800  433          jsr       _Wait3ms
+0800020C  00F4      
+                     434   ; LCDClearln() ;
+0800020E  4EB9 0800  435          jsr       _LCDClearln
+08000212  01DC      
+                     436   ; LCDcommand = 0x80 ;
+08000214  13FC 0080  437          move.b    #128,4194336
+08000218  0040 0020 
+                     438   ; Wait3ms() ;
+0800021C  4EB9 0800  439          jsr       _Wait3ms
+08000220  00F4      
+                     440   ; LCDOutMessage(theMessage) ;
+08000222  2F2E 0008  441          move.l    8(A6),-(A7)
+08000226  4EB9 0800  442          jsr       _LCDOutMessage
+0800022A  01B0      
+0800022C  584F       443          addq.w    #4,A7
+0800022E  4E5E       444          unlk      A6
+08000230  4E75       445          rts
+                     446   ; }
+                     447   ; /******************************************************************************
+                     448   ; **  Subroutine to move the LCD cursor to the start of line 2 and clear that line
+                     449   ; *******************************************************************************/
+                     450   ; void LCDLine2Message(char *theMessage)
+                     451   ; {
+                     452   _LCDLine2Message:
+08000232  4E56 0000  453          link      A6,#0
+                     454   ; LCDcommand = 0xC0 ;
+08000236  13FC 00C0  455          move.b    #192,4194336
+0800023A  0040 0020 
+                     456   ; Wait3ms();
+0800023E  4EB9 0800  457          jsr       _Wait3ms
+08000242  00F4      
+                     458   ; LCDClearln() ;
+08000244  4EB9 0800  459          jsr       _LCDClearln
+08000248  01DC      
+                     460   ; LCDcommand = 0xC0 ;
+0800024A  13FC 00C0  461          move.b    #192,4194336
+0800024E  0040 0020 
+                     462   ; Wait3ms() ;
+08000252  4EB9 0800  463          jsr       _Wait3ms
+08000256  00F4      
+                     464   ; LCDOutMessage(theMessage) ;
+08000258  2F2E 0008  465          move.l    8(A6),-(A7)
+0800025C  4EB9 0800  466          jsr       _LCDOutMessage
+08000260  01B0      
+08000262  584F       467          addq.w    #4,A7
+08000264  4E5E       468          unlk      A6
+08000266  4E75       469          rts
+                     470   ; }
+                     471   ; /*********************************************************************************************************************************
+                     472   ; **  IMPORTANT FUNCTION
+                     473   ; **  This function install an exception handler so you can capture and deal with any 68000 exception in your program
+                     474   ; **  You pass it the name of a function in your code that will get called in response to the exception (as the 1st parameter)
+                     475   ; **  and in the 2nd parameter, you pass it the exception number that you want to take over (see 68000 exceptions for details)
+                     476   ; **  Calling this function allows you to deal with Interrupts for example
+                     477   ; ***********************************************************************************************************************************/
+                     478   ; void InstallExceptionHandler( void (*function_ptr)(), int level)
+                     479   ; {
+                     480   _InstallExceptionHandler:
+08000268  4E56 FFFC  481          link      A6,#-4
+                     482   ; volatile long int *RamVectorAddress = (volatile long int *)(StartOfExceptionVectorTable) ;   // pointer to the Ram based interrupt vector table created in Cstart in debug monitor
+0800026C  2D7C 0B00  483          move.l    #184549376,-4(A6)
+08000270  0000 FFFC 
+                     484   ; RamVectorAddress[level] = (long int *)(function_ptr);                       // install the address of our function into the exception table
+08000274  206E FFFC  485          move.l    -4(A6),A0
+08000278  202E 000C  486          move.l    12(A6),D0
+0800027C  E588       487          lsl.l     #2,D0
+0800027E  21AE 0008  488          move.l    8(A6),0(A0,D0.L)
+08000282  0800      
+08000284  4E5E       489          unlk      A6
+08000286  4E75       490          rts
+                     491   ; }
+                     492   ; /******************************************************************************************************************************
+                     493   ; * Start of user program
+                     494   ; ******************************************************************************************************************************/
+                     495   ; unsigned char * RamWriter;
+                     496   ; unsigned char * start_address;
+                     497   ; unsigned char * end_address;
+                     498   ; unsigned int test_type;
+                     499   ; unsigned int user_data;
+                     500   ; unsigned char * current_address;
+                     501   ; unsigned char *  intermediate_address;
+                     502   ; int address_increment;
+                     503   ; int address_length_flag;
+                     504   ; unsigned int read_write_test;
+                     505   ; void main()
+                     506   ; {
+                     507   _main:
+                     508   ; printf("Running Demo Program");
+08000288  4879 0800  509          pea       @memory~1_1.L
+0800028C  0CFC      
+0800028E  4EB9 0800  510          jsr       _printf
+08000292  0298      
+08000294  584F       511          addq.w    #4,A7
+08000296  4E75       512          rts
+                     513   ; }
+                     514   _printf:
+08000298  4E56 FFFC  515          link      A6,#-4
+0800029C  2F02       516          move.l    D2,-(A7)
+0800029E  41EE 0008  517          lea       8(A6),A0
+080002A2  5848       518          addq.w    #4,A0
+080002A4  2408       519          move.l    A0,D2
+080002A6  2F02       520          move.l    D2,-(A7)
+080002A8  2F2E 0008  521          move.l    8(A6),-(A7)
+080002AC  42A7       522          clr.l     -(A7)
+080002AE  4EB9 0800  523          jsr       _doprint
+080002B2  0370      
+080002B4  DEFC 000C  524          add.w     #12,A7
+080002B8  2D40 FFFC  525          move.l    D0,-4(A6)
+080002BC  4282       526          clr.l     D2
+080002BE  202E FFFC  527          move.l    -4(A6),D0
+080002C2  241F       528          move.l    (A7)+,D2
+080002C4  4E5E       529          unlk      A6
+080002C6  4E75       530          rts
+                     531   @doprint_copy:
+080002C8  4E56 0000  532          link      A6,#0
+080002CC  206E 0008  533          move.l    8(A6),A0
+080002D0  4A90       534          tst.l     (A0)
+080002D2  6710       535          beq.s     @doprint_copy_1
+080002D4  202E 000C  536          move.l    12(A6),D0
+080002D8  206E 0008  537          move.l    8(A6),A0
+080002DC  2250       538          move.l    (A0),A1
+080002DE  5290       539          addq.l    #1,(A0)
+080002E0  1280       540          move.b    D0,(A1)
+080002E2  600C       541          bra.s     @doprint_copy_2
+                     542   @doprint_copy_1:
+080002E4  2F2E 000C  543          move.l    12(A6),-(A7)
+080002E8  4EB9 0800  544          jsr       _putch
+080002EC  0BC2      
+080002EE  584F       545          addq.w    #4,A7
+                     546   @doprint_copy_2:
+080002F0  4E5E       547          unlk      A6
+080002F2  4E75       548          rts
+                     549   @doprint_getval:
+080002F4  4E56 0000  550          link      A6,#0
+080002F8  48E7 3000  551          movem.l   D2/D3,-(A7)
+080002FC  262E 0008  552          move.l    8(A6),D3
+08000300  4282       553          clr.l     D2
+08000302  2043       554          move.l    D3,A0
+08000304  2050       555          move.l    (A0),A0
+08000306  1010       556          move.b    (A0),D0
+08000308  0C00 002A  557          cmp.b     #42,D0
+0800030C  6612       558          bne.s     @doprint_getval_1
+0800030E  206E 000C  559          move.l    12(A6),A0
+08000312  2250       560          move.l    (A0),A1
+08000314  5890       561          addq.l    #4,(A0)
+08000316  2411       562          move.l    (A1),D2
+08000318  2043       563          move.l    D3,A0
+0800031A  5290       564          addq.l    #1,(A0)
+0800031C  6000 0048  565          bra       @doprint_getval_5
+                     566   @doprint_getval_1:
+08000320  7001       567          moveq     #1,D0
+08000322  2043       568          move.l    D3,A0
+08000324  2050       569          move.l    (A0),A0
+08000326  1210       570          move.b    (A0),D1
+08000328  4881       571          ext.w     D1
+0800032A  48C1       572          ext.l     D1
+0800032C  D081       573          add.l     D1,D0
+0800032E  41F9 0800  574          lea       __ctype.L,A0
+08000332  0D1E      
+08000334  1030 0800  575          move.b    0(A0,D0.L),D0
+08000338  C03C 0004  576          and.b     #4,D0
+0800033C  6728       577          beq.s     @doprint_getval_5
+0800033E  2F02       578          move.l    D2,-(A7)
+08000340  4878 000A  579          pea       10
+08000344  4EB9 0800  580          jsr       LMUL
+08000348  0B22      
+0800034A  2017       581          move.l    (A7),D0
+0800034C  504F       582          addq.w    #8,A7
+0800034E  2043       583          move.l    D3,A0
+08000350  2250       584          move.l    (A0),A1
+08000352  5290       585          addq.l    #1,(A0)
+08000354  1211       586          move.b    (A1),D1
+08000356  4881       587          ext.w     D1
+08000358  48C1       588          ext.l     D1
+0800035A  D081       589          add.l     D1,D0
+0800035C  0480 0000  590          sub.l     #48,D0
+08000360  0030      
+08000362  2400       591          move.l    D0,D2
+08000364  60BA       592          bra       @doprint_getval_1
+                     593   @doprint_getval_5:
+08000366  2002       594          move.l    D2,D0
+08000368  4CDF 000C  595          movem.l   (A7)+,D2/D3
+0800036C  4E5E       596          unlk      A6
+0800036E  4E75       597          rts
+                     598   _doprint:
+08000370  4E56 FFCC  599          link      A6,#-52
+08000374  48E7 3F3C  600          movem.l   D2/D3/D4/D5/D6/D7/A2/A3/A4/A5,-(A7)
+08000378  45EE 0008  601          lea       8(A6),A2
+0800037C  47F9 0800  602          lea       @doprint_copy.L,A3
+08000380  02C8      
+08000382  49F9 0800  603          lea       _ultoa.L,A4
+08000386  0AAA      
+08000388  4286       604          clr.l     D6
+                     605   doprint_1:
+0800038A  206E 000C  606          move.l    12(A6),A0
+0800038E  4A10       607          tst.b     (A0)
+08000390  6700 05F0  608          beq       doprint_3
+08000394  206E 000C  609          move.l    12(A6),A0
+08000398  1010       610          move.b    (A0),D0
+0800039A  0C00 0025  611          cmp.b     #37,D0
+0800039E  671C       612          beq.s     doprint_4
+080003A0  206E 000C  613          move.l    12(A6),A0
+080003A4  52AE 000C  614          addq.l    #1,12(A6)
+080003A8  1210       615          move.b    (A0),D1
+080003AA  4881       616          ext.w     D1
+080003AC  48C1       617          ext.l     D1
+080003AE  2F01       618          move.l    D1,-(A7)
+080003B0  2F0A       619          move.l    A2,-(A7)
+080003B2  4E93       620          jsr       (A3)
+080003B4  504F       621          addq.w    #8,A7
+080003B6  5286       622          addq.l    #1,D6
+080003B8  6000 05C4  623          bra       doprint_2
+                     624   doprint_4:
+080003BC  52AE 000C  625          addq.l    #1,12(A6)
+080003C0  422E FFD3  626          clr.b     -45(A6)
+080003C4  422E FFD2  627          clr.b     -46(A6)
+080003C8  422E FFD0  628          clr.b     -48(A6)
+080003CC  422E FFCF  629          clr.b     -49(A6)
+080003D0  422E FFCE  630          clr.b     -50(A6)
+080003D4  422E FFCD  631          clr.b     -51(A6)
+080003D8  42AE FFFC  632          clr.l     -4(A6)
+080003DC  7AFF       633          moveq     #-1,D5
+080003DE  41EE FFDC  634          lea       -36(A6),A0
+080003E2  2608       635          move.l    A0,D3
+080003E4  2408       636          move.l    A0,D2
+                     637   doprint_6:
+080003E6  206E 000C  638          move.l    12(A6),A0
+080003EA  1010       639          move.b    (A0),D0
+080003EC  4880       640          ext.w     D0
+080003EE  48C0       641          ext.l     D0
+080003F0  0C80 0000  642          cmp.l     #43,D0
+080003F4  002B      
+080003F6  6730       643          beq.s     doprint_12
+080003F8  6E18       644          bgt.s     doprint_15
+080003FA  0C80 0000  645          cmp.l     #35,D0
+080003FE  0023      
+08000400  6700 003E  646          beq       doprint_14
+08000404  6E00 0046  647          bgt       doprint_9
+08000408  0C80 0000  648          cmp.l     #32,D0
+0800040C  0020      
+0800040E  6724       649          beq.s     doprint_13
+08000410  603A       650          bra.s     doprint_9
+                     651   doprint_15:
+08000412  0C80 0000  652          cmp.l     #45,D0
+08000416  002D      
+08000418  6702       653          beq.s     doprint_11
+0800041A  6030       654          bra.s     doprint_9
+                     655   doprint_11:
+0800041C  1D7C 0001  656          move.b    #1,-51(A6)
+08000420  FFCD      
+08000422  52AE 000C  657          addq.l    #1,12(A6)
+08000426  6026       658          bra.s     doprint_7
+                     659   doprint_12:
+08000428  1D7C 0001  660          move.b    #1,-50(A6)
+0800042C  FFCE      
+0800042E  52AE 000C  661          addq.l    #1,12(A6)
+08000432  601A       662          bra.s     doprint_7
+                     663   doprint_13:
+08000434  1D7C 0001  664          move.b    #1,-49(A6)
+08000438  FFCF      
+0800043A  52AE 000C  665          addq.l    #1,12(A6)
+0800043E  600E       666          bra.s     doprint_7
+                     667   doprint_14:
+08000440  1D7C 0001  668          move.b    #1,-48(A6)
+08000444  FFD0      
+08000446  52AE 000C  669          addq.l    #1,12(A6)
+0800044A  6002       670          bra.s     doprint_7
+                     671   doprint_9:
+0800044C  6002       672          bra.s     doprint_8
+                     673   doprint_7:
+0800044E  6096       674          bra       doprint_6
+                     675   doprint_8:
+08000450  206E 000C  676          move.l    12(A6),A0
+08000454  1010       677          move.b    (A0),D0
+08000456  0C00 0030  678          cmp.b     #48,D0
+0800045A  660A       679          bne.s     doprint_16
+0800045C  52AE 000C  680          addq.l    #1,12(A6)
+08000460  1D7C 0001  681          move.b    #1,-46(A6)
+08000464  FFD2      
+                     682   doprint_16:
+08000466  486E 0010  683          pea       16(A6)
+0800046A  486E 000C  684          pea       12(A6)
+0800046E  4EB9 0800  685          jsr       @doprint_getval
+08000472  02F4      
+08000474  504F       686          addq.w    #8,A7
+08000476  2A40       687          move.l    D0,A5
+08000478  206E 000C  688          move.l    12(A6),A0
+0800047C  1010       689          move.b    (A0),D0
+0800047E  0C00 002E  690          cmp.b     #46,D0
+08000482  6616       691          bne.s     doprint_18
+08000484  52AE 000C  692          addq.l    #1,12(A6)
+08000488  486E 0010  693          pea       16(A6)
+0800048C  486E 000C  694          pea       12(A6)
+08000490  4EB9 0800  695          jsr       @doprint_getval
+08000494  02F4      
+08000496  504F       696          addq.w    #8,A7
+08000498  2A00       697          move.l    D0,D5
+                     698   doprint_18:
+0800049A  206E 000C  699          move.l    12(A6),A0
+0800049E  1010       700          move.b    (A0),D0
+080004A0  0C00 006C  701          cmp.b     #108,D0
+080004A4  660A       702          bne.s     doprint_20
+080004A6  52AE 000C  703          addq.l    #1,12(A6)
+080004AA  1D7C 0001  704          move.b    #1,-45(A6)
+080004AE  FFD3      
+                     705   doprint_20:
+080004B0  206E 000C  706          move.l    12(A6),A0
+080004B4  1010       707          move.b    (A0),D0
+080004B6  4880       708          ext.w     D0
+080004B8  48C0       709          ext.l     D0
+080004BA  0C80 0000  710          cmp.l     #111,D0
+080004BE  006F      
+080004C0  6700 00D8  711          beq       doprint_27
+080004C4  6E34       712          bgt.s     doprint_33
+080004C6  0C80 0000  713          cmp.l     #100,D0
+080004CA  0064      
+080004CC  6700 0054  714          beq       doprint_24
+080004D0  6E1C       715          bgt.s     doprint_34
+080004D2  0C80 0000  716          cmp.l     #99,D0
+080004D6  0063      
+080004D8  6700 0130  717          beq       doprint_30
+080004DC  6E00 0174  718          bgt       doprint_22
+080004E0  0C80 0000  719          cmp.l     #88,D0
+080004E4  0058      
+080004E6  6700 00EA  720          beq       doprint_28
+080004EA  6000 0166  721          bra       doprint_22
+                     722   doprint_34:
+080004EE  0C80 0000  723          cmp.l     #105,D0
+080004F2  0069      
+080004F4  672C       724          beq.s     doprint_24
+080004F6  6000 015A  725          bra       doprint_22
+                     726   doprint_33:
+080004FA  0C80 0000  727          cmp.l     #117,D0
+080004FE  0075      
+08000500  6700 0060  728          beq       doprint_26
+08000504  6E0E       729          bgt.s     doprint_35
+08000506  0C80 0000  730          cmp.l     #115,D0
+0800050A  0073      
+0800050C  6700 0124  731          beq       doprint_31
+08000510  6000 0140  732          bra       doprint_22
+                     733   doprint_35:
+08000514  0C80 0000  734          cmp.l     #120,D0
+08000518  0078      
+0800051A  6700 00B6  735          beq       doprint_28
+0800051E  6000 0132  736          bra       doprint_22
+                     737   doprint_24:
+08000522  4A2E FFD3  738          tst.b     -45(A6)
+08000526  671C       739          beq.s     doprint_36
+08000528  4878 000A  740          pea       10
+0800052C  2F03       741          move.l    D3,-(A7)
+0800052E  206E 0010  742          move.l    16(A6),A0
+08000532  58AE 0010  743          addq.l    #4,16(A6)
+08000536  2F10       744          move.l    (A0),-(A7)
+08000538  4EB9 0800  745          jsr       _ltoa
+0800053C  0A22      
+0800053E  DEFC 000C  746          add.w     #12,A7
+08000542  601A       747          bra.s     doprint_37
+                     748   doprint_36:
+08000544  4878 000A  749          pea       10
+08000548  2F03       750          move.l    D3,-(A7)
+0800054A  206E 0010  751          move.l    16(A6),A0
+0800054E  58AE 0010  752          addq.l    #4,16(A6)
+08000552  2F10       753          move.l    (A0),-(A7)
+08000554  4EB9 0800  754          jsr       _ltoa
+08000558  0A22      
+0800055A  DEFC 000C  755          add.w     #12,A7
+                     756   doprint_37:
+0800055E  6000 0100  757          bra       doprint_23
+                     758   doprint_26:
+08000562  4A2E FFD3  759          tst.b     -45(A6)
+08000566  6718       760          beq.s     doprint_38
+08000568  4878 000A  761          pea       10
+0800056C  2F03       762          move.l    D3,-(A7)
+0800056E  206E 0010  763          move.l    16(A6),A0
+08000572  58AE 0010  764          addq.l    #4,16(A6)
+08000576  2F10       765          move.l    (A0),-(A7)
+08000578  4E94       766          jsr       (A4)
+0800057A  DEFC 000C  767          add.w     #12,A7
+0800057E  6016       768          bra.s     doprint_39
+                     769   doprint_38:
+08000580  4878 000A  770          pea       10
+08000584  2F03       771          move.l    D3,-(A7)
+08000586  206E 0010  772          move.l    16(A6),A0
+0800058A  58AE 0010  773          addq.l    #4,16(A6)
+0800058E  2F10       774          move.l    (A0),-(A7)
+08000590  4E94       775          jsr       (A4)
+08000592  DEFC 000C  776          add.w     #12,A7
+                     777   doprint_39:
+08000596  6000 00C8  778          bra       doprint_23
+                     779   doprint_27:
+0800059A  4A2E FFD3  780          tst.b     -45(A6)
+0800059E  6718       781          beq.s     doprint_40
+080005A0  4878 0008  782          pea       8
+080005A4  2F03       783          move.l    D3,-(A7)
+080005A6  206E 0010  784          move.l    16(A6),A0
+080005AA  58AE 0010  785          addq.l    #4,16(A6)
+080005AE  2F10       786          move.l    (A0),-(A7)
+080005B0  4E94       787          jsr       (A4)
+080005B2  DEFC 000C  788          add.w     #12,A7
+080005B6  6016       789          bra.s     doprint_41
+                     790   doprint_40:
+080005B8  4878 0008  791          pea       8
+080005BC  2F03       792          move.l    D3,-(A7)
+080005BE  206E 0010  793          move.l    16(A6),A0
+080005C2  58AE 0010  794          addq.l    #4,16(A6)
+080005C6  2F10       795          move.l    (A0),-(A7)
+080005C8  4E94       796          jsr       (A4)
+080005CA  DEFC 000C  797          add.w     #12,A7
+                     798   doprint_41:
+080005CE  6000 0090  799          bra       doprint_23
+                     800   doprint_28:
+080005D2  4A2E FFD3  801          tst.b     -45(A6)
+080005D6  6718       802          beq.s     doprint_42
+080005D8  4878 0010  803          pea       16
+080005DC  2F03       804          move.l    D3,-(A7)
+080005DE  206E 0010  805          move.l    16(A6),A0
+080005E2  58AE 0010  806          addq.l    #4,16(A6)
+080005E6  2F10       807          move.l    (A0),-(A7)
+080005E8  4E94       808          jsr       (A4)
+080005EA  DEFC 000C  809          add.w     #12,A7
+080005EE  6016       810          bra.s     doprint_43
+                     811   doprint_42:
+080005F0  4878 0010  812          pea       16
+080005F4  2F03       813          move.l    D3,-(A7)
+080005F6  206E 0010  814          move.l    16(A6),A0
+080005FA  58AE 0010  815          addq.l    #4,16(A6)
+080005FE  2F10       816          move.l    (A0),-(A7)
+08000600  4E94       817          jsr       (A4)
+08000602  DEFC 000C  818          add.w     #12,A7
+                     819   doprint_43:
+08000606  6000 0058  820          bra       doprint_23
+                     821   doprint_30:
+0800060A  206E 0010  822          move.l    16(A6),A0
+0800060E  58AE 0010  823          addq.l    #4,16(A6)
+08000612  2010       824          move.l    (A0),D0
+08000614  2042       825          move.l    D2,A0
+08000616  5282       826          addq.l    #1,D2
+08000618  1080       827          move.b    D0,(A0)
+0800061A  2042       828          move.l    D2,A0
+0800061C  4210       829          clr.b     (A0)
+0800061E  200D       830          move.l    A5,D0
+08000620  6704       831          beq.s     doprint_44
+08000622  200D       832          move.l    A5,D0
+08000624  6006       833          bra.s     doprint_45
+                     834   doprint_44:
+08000626  7001       835          moveq     #1,D0
+08000628  4880       836          ext.w     D0
+0800062A  48C0       837          ext.l     D0
+                     838   doprint_45:
+0800062C  2A00       839          move.l    D0,D5
+0800062E  6000 0030  840          bra       doprint_23
+                     841   doprint_31:
+08000632  206E 0010  842          move.l    16(A6),A0
+08000636  58AE 0010  843          addq.l    #4,16(A6)
+0800063A  2610       844          move.l    (A0),D3
+0800063C  0C85 FFFF  845          cmp.l     #-1,D5
+08000640  FFFF      
+08000642  660C       846          bne.s     doprint_46
+08000644  2F03       847          move.l    D3,-(A7)
+08000646  4EB9 0800  848          jsr       _strlen
+0800064A  0BB0      
+0800064C  584F       849          addq.w    #4,A7
+0800064E  2A00       850          move.l    D0,D5
+                     851   doprint_46:
+08000650  600E       852          bra.s     doprint_23
+                     853   doprint_22:
+08000652  206E 000C  854          move.l    12(A6),A0
+08000656  2242       855          move.l    D2,A1
+08000658  5282       856          addq.l    #1,D2
+0800065A  1290       857          move.b    (A0),(A1)
+0800065C  2042       858          move.l    D2,A0
+0800065E  4210       859          clr.b     (A0)
+                     860   doprint_23:
+08000660  2F03       861          move.l    D3,-(A7)
+08000662  4EB9 0800  862          jsr       _strlen
+08000666  0BB0      
+08000668  584F       863          addq.w    #4,A7
+0800066A  1800       864          move.b    D0,D4
+0800066C  206E 000C  865          move.l    12(A6),A0
+08000670  1010       866          move.b    (A0),D0
+08000672  0C00 0073  867          cmp.b     #115,D0
+08000676  661C       868          bne.s     doprint_48
+08000678  0C85 0000  869          cmp.l     #0,D5
+0800067C  0000      
+0800067E  6D14       870          blt.s     doprint_48
+08000680  4884       871          ext.w     D4
+08000682  48C4       872          ext.l     D4
+08000684  B885       873          cmp.l     D5,D4
+08000686  6F04       874          ble.s     doprint_50
+08000688  2005       875          move.l    D5,D0
+0800068A  6006       876          bra.s     doprint_51
+                     877   doprint_50:
+0800068C  1004       878          move.b    D4,D0
+0800068E  4880       879          ext.w     D0
+08000690  48C0       880          ext.l     D0
+                     881   doprint_51:
+08000692  1800       882          move.b    D0,D4
+                     883   doprint_48:
+08000694  206E 000C  884          move.l    12(A6),A0
+08000698  1010       885          move.b    (A0),D0
+0800069A  0C00 0058  886          cmp.b     #88,D0
+0800069E  6600 0028  887          bne       doprint_56
+080006A2  41EE FFDC  888          lea       -36(A6),A0
+080006A6  2408       889          move.l    A0,D2
+                     890   doprint_54:
+080006A8  2042       891          move.l    D2,A0
+080006AA  4A10       892          tst.b     (A0)
+080006AC  671A       893          beq.s     doprint_56
+080006AE  2042       894          move.l    D2,A0
+080006B0  1210       895          move.b    (A0),D1
+080006B2  4881       896          ext.w     D1
+080006B4  48C1       897          ext.l     D1
+080006B6  2F01       898          move.l    D1,-(A7)
+080006B8  4EB9 0800  899          jsr       _toupper
+080006BC  0BF2      
+080006BE  584F       900          addq.w    #4,A7
+080006C0  2042       901          move.l    D2,A0
+080006C2  1080       902          move.b    D0,(A0)
+080006C4  5282       903          addq.l    #1,D2
+080006C6  60E0       904          bra       doprint_54
+                     905   doprint_56:
+080006C8  7E00       906          moveq     #0,D7
+080006CA  41EE FFD4  907          lea       -44(A6),A0
+080006CE  2408       908          move.l    A0,D2
+080006D0  206E 000C  909          move.l    12(A6),A0
+080006D4  1010       910          move.b    (A0),D0
+080006D6  0C00 0064  911          cmp.b     #100,D0
+080006DA  670E       912          beq.s     doprint_59
+080006DC  206E 000C  913          move.l    12(A6),A0
+080006E0  1010       914          move.b    (A0),D0
+080006E2  0C00 0069  915          cmp.b     #105,D0
+080006E6  6600 0068  916          bne       doprint_65
+                     917   doprint_59:
+080006EA  102E FFCE  918          move.b    -50(A6),D0
+080006EE  4880       919          ext.w     D0
+080006F0  48C0       920          ext.l     D0
+080006F2  4A80       921          tst.l     D0
+080006F4  660C       922          bne.s     doprint_62
+080006F6  2043       923          move.l    D3,A0
+080006F8  1010       924          move.b    (A0),D0
+080006FA  0C00 002D  925          cmp.b     #45,D0
+080006FE  6600 0028  926          bne       doprint_60
+                     927   doprint_62:
+08000702  2043       928          move.l    D3,A0
+08000704  1010       929          move.b    (A0),D0
+08000706  0C00 002D  930          cmp.b     #45,D0
+0800070A  660E       931          bne.s     doprint_63
+0800070C  2043       932          move.l    D3,A0
+0800070E  5283       933          addq.l    #1,D3
+08000710  2242       934          move.l    D2,A1
+08000712  5282       935          addq.l    #1,D2
+08000714  1290       936          move.b    (A0),(A1)
+08000716  5304       937          subq.b    #1,D4
+08000718  6008       938          bra.s     doprint_64
+                     939   doprint_63:
+0800071A  2042       940          move.l    D2,A0
+0800071C  5282       941          addq.l    #1,D2
+0800071E  10BC 002B  942          move.b    #43,(A0)
+                     943   doprint_64:
+08000722  5287       944          addq.l    #1,D7
+08000724  6000 002A  945          bra       doprint_65
+                     946   doprint_60:
+08000728  4A2E FFCF  947          tst.b     -49(A6)
+0800072C  6722       948          beq.s     doprint_65
+0800072E  2043       949          move.l    D3,A0
+08000730  1010       950          move.b    (A0),D0
+08000732  0C00 002D  951          cmp.b     #45,D0
+08000736  660E       952          bne.s     doprint_67
+08000738  2043       953          move.l    D3,A0
+0800073A  5283       954          addq.l    #1,D3
+0800073C  2242       955          move.l    D2,A1
+0800073E  5282       956          addq.l    #1,D2
+08000740  1290       957          move.b    (A0),(A1)
+08000742  5304       958          subq.b    #1,D4
+08000744  6008       959          bra.s     doprint_68
+                     960   doprint_67:
+08000746  2042       961          move.l    D2,A0
+08000748  5282       962          addq.l    #1,D2
+0800074A  10BC 0020  963          move.b    #32,(A0)
+                     964   doprint_68:
+0800074E  5287       965          addq.l    #1,D7
+                     966   doprint_65:
+08000750  4A2E FFD0  967          tst.b     -48(A6)
+08000754  6700 005A  968          beq       doprint_77
+08000758  206E 000C  969          move.l    12(A6),A0
+0800075C  1010       970          move.b    (A0),D0
+0800075E  4880       971          ext.w     D0
+08000760  48C0       972          ext.l     D0
+08000762  0C80 0000  973          cmp.l     #111,D0
+08000766  006F      
+08000768  671A       974          beq.s     doprint_73
+0800076A  6E0C       975          bgt.s     doprint_76
+0800076C  0C80 0000  976          cmp.l     #88,D0
+08000770  0058      
+08000772  6710       977          beq.s     doprint_73
+08000774  6000 003A  978          bra       doprint_77
+                     979   doprint_76:
+08000778  0C80 0000  980          cmp.l     #120,D0
+0800077C  0078      
+0800077E  6704       981          beq.s     doprint_73
+08000780  6000 002E  982          bra       doprint_77
+                     983   doprint_73:
+08000784  2042       984          move.l    D2,A0
+08000786  5282       985          addq.l    #1,D2
+08000788  10BC 0030  986          move.b    #48,(A0)
+0800078C  5287       987          addq.l    #1,D7
+0800078E  206E 000C  988          move.l    12(A6),A0
+08000792  1010       989          move.b    (A0),D0
+08000794  0C00 0078  990          cmp.b     #120,D0
+08000798  670C       991          beq.s     doprint_79
+0800079A  206E 000C  992          move.l    12(A6),A0
+0800079E  1010       993          move.b    (A0),D0
+080007A0  0C00 0058  994          cmp.b     #88,D0
+080007A4  660A       995          bne.s     doprint_77
+                     996   doprint_79:
+080007A6  2042       997          move.l    D2,A0
+080007A8  5282       998          addq.l    #1,D2
+080007AA  10BC 0078  999          move.b    #120,(A0)
+080007AE  5287      1000          addq.l    #1,D7
+                    1001   doprint_77:
+080007B0  2042      1002          move.l    D2,A0
+080007B2  4210      1003          clr.b     (A0)
+080007B4  206E 000C 1004          move.l    12(A6),A0
+080007B8  1010      1005          move.b    (A0),D0
+080007BA  4880      1006          ext.w     D0
+080007BC  48C0      1007          ext.l     D0
+080007BE  0C80 0000 1008          cmp.l     #105,D0
+080007C2  0069      
+080007C4  6700 0076 1009          beq       doprint_82
+080007C8  6E42      1010          bgt.s     doprint_93
+080007CA  0C80 0000 1011          cmp.l     #99,D0
+080007CE  0063      
+080007D0  6700 0084 1012          beq       doprint_96
+080007D4  6E1C      1013          bgt.s     doprint_94
+080007D6  0C80 0000 1014          cmp.l     #88,D0
+080007DA  0058      
+080007DC  6700 005E 1015          beq       doprint_82
+080007E0  6E00 0184 1016          bgt       doprint_80
+080007E4  0C80 0000 1017          cmp.l     #69,D0
+080007E8  0045      
+080007EA  6700 0050 1018          beq       doprint_82
+080007EE  6000 0176 1019          bra       doprint_80
+                    1020   doprint_94:
+080007F2  0C80 0000 1021          cmp.l     #101,D0
+080007F6  0065      
+080007F8  6700 0042 1022          beq       doprint_82
+080007FC  6E00 0168 1023          bgt       doprint_80
+08000800  0C80 0000 1024          cmp.l     #100,D0
+08000804  0064      
+08000806  6734      1025          beq.s     doprint_82
+08000808  6000 015C 1026          bra       doprint_80
+                    1027   doprint_93:
+0800080C  0C80 0000 1028          cmp.l     #117,D0
+08000810  0075      
+08000812  6728      1029          beq.s     doprint_82
+08000814  6E1A      1030          bgt.s     doprint_95
+08000816  0C80 0000 1031          cmp.l     #115,D0
+0800081A  0073      
+0800081C  6700 0038 1032          beq       doprint_96
+08000820  6E00 0144 1033          bgt       doprint_80
+08000824  0C80 0000 1034          cmp.l     #111,D0
+08000828  006F      
+0800082A  6710      1035          beq.s     doprint_82
+0800082C  6000 0138 1036          bra       doprint_80
+                    1037   doprint_95:
+08000830  0C80 0000 1038          cmp.l     #120,D0
+08000834  0078      
+08000836  6704      1039          beq.s     doprint_82
+08000838  6000 012C 1040          bra       doprint_80
+                    1041   doprint_82:
+0800083C  4A2E FFD2 1042          tst.b     -46(A6)
+08000840  6714      1043          beq.s     doprint_96
+08000842  4A2E FFCD 1044          tst.b     -51(A6)
+08000846  660E      1045          bne.s     doprint_96
+08000848  200D      1046          move.l    A5,D0
+0800084A  9087      1047          sub.l     D7,D0
+0800084C  4884      1048          ext.w     D4
+0800084E  48C4      1049          ext.l     D4
+08000850  9084      1050          sub.l     D4,D0
+08000852  2D40 FFFC 1051          move.l    D0,-4(A6)
+                    1052   doprint_96:
+08000856  202E FFFC 1053          move.l    -4(A6),D0
+0800085A  0C80 0000 1054          cmp.l     #0,D0
+0800085E  0000      
+08000860  6C04      1055          bge.s     doprint_98
+08000862  42AE FFFC 1056          clr.l     -4(A6)
+                    1057   doprint_98:
+08000866  4A2E FFCD 1058          tst.b     -51(A6)
+0800086A  6600 0030 1059          bne       doprint_104
+0800086E  1004      1060          move.b    D4,D0
+08000870  4880      1061          ext.w     D0
+08000872  48C0      1062          ext.l     D0
+08000874  D0AE FFFC 1063          add.l     -4(A6),D0
+08000878  D087      1064          add.l     D7,D0
+0800087A  1D40 FFD1 1065          move.b    D0,-47(A6)
+                    1066   doprint_102:
+0800087E  102E FFD1 1067          move.b    -47(A6),D0
+08000882  4880      1068          ext.w     D0
+08000884  48C0      1069          ext.l     D0
+08000886  220D      1070          move.l    A5,D1
+08000888  534D      1071          subq.w    #1,A5
+0800088A  B081      1072          cmp.l     D1,D0
+0800088C  6C0E      1073          bge.s     doprint_104
+0800088E  4878 0020 1074          pea       32
+08000892  2F0A      1075          move.l    A2,-(A7)
+08000894  4E93      1076          jsr       (A3)
+08000896  504F      1077          addq.w    #8,A7
+08000898  5286      1078          addq.l    #1,D6
+0800089A  60E2      1079          bra       doprint_102
+                    1080   doprint_104:
+0800089C  41EE FFD4 1081          lea       -44(A6),A0
+080008A0  2408      1082          move.l    A0,D2
+                    1083   doprint_105:
+080008A2  2042      1084          move.l    D2,A0
+080008A4  4A10      1085          tst.b     (A0)
+080008A6  6716      1086          beq.s     doprint_107
+080008A8  2042      1087          move.l    D2,A0
+080008AA  5282      1088          addq.l    #1,D2
+080008AC  1210      1089          move.b    (A0),D1
+080008AE  4881      1090          ext.w     D1
+080008B0  48C1      1091          ext.l     D1
+080008B2  2F01      1092          move.l    D1,-(A7)
+080008B4  2F0A      1093          move.l    A2,-(A7)
+080008B6  4E93      1094          jsr       (A3)
+080008B8  504F      1095          addq.w    #8,A7
+080008BA  5286      1096          addq.l    #1,D6
+080008BC  60E4      1097          bra       doprint_105
+                    1098   doprint_107:
+080008BE  202E FFFC 1099          move.l    -4(A6),D0
+080008C2  1D40 FFD1 1100          move.b    D0,-47(A6)
+                    1101   doprint_108:
+080008C6  102E FFD1 1102          move.b    -47(A6),D0
+080008CA  532E FFD1 1103          subq.b    #1,-47(A6)
+080008CE  4A00      1104          tst.b     D0
+080008D0  670E      1105          beq.s     doprint_110
+080008D2  4878 0030 1106          pea       48
+080008D6  2F0A      1107          move.l    A2,-(A7)
+080008D8  4E93      1108          jsr       (A3)
+080008DA  504F      1109          addq.w    #8,A7
+080008DC  5286      1110          addq.l    #1,D6
+080008DE  60E6      1111          bra       doprint_108
+                    1112   doprint_110:
+080008E0  2043      1113          move.l    D3,A0
+080008E2  4A10      1114          tst.b     (A0)
+080008E4  6700 0048 1115          beq       doprint_113
+080008E8  206E 000C 1116          move.l    12(A6),A0
+080008EC  1010      1117          move.b    (A0),D0
+080008EE  4880      1118          ext.w     D0
+080008F0  48C0      1119          ext.l     D0
+080008F2  0C80 0000 1120          cmp.l     #115,D0
+080008F6  0073      
+080008F8  670C      1121          beq.s     doprint_116
+080008FA  6E18      1122          bgt.s     doprint_119
+080008FC  0C80 0000 1123          cmp.l     #99,D0
+08000900  0063      
+08000902  6702      1124          beq.s     doprint_116
+08000904  600E      1125          bra.s     doprint_119
+                    1126   doprint_116:
+08000906  2005      1127          move.l    D5,D0
+08000908  5385      1128          subq.l    #1,D5
+0800090A  0C80 0000 1129          cmp.l     #0,D0
+0800090E  0000      
+08000910  6E02      1130          bgt.s     doprint_119
+08000912  6016      1131          bra.s     doprint_115
+                    1132   doprint_119:
+08000914  2043      1133          move.l    D3,A0
+08000916  5283      1134          addq.l    #1,D3
+08000918  1210      1135          move.b    (A0),D1
+0800091A  4881      1136          ext.w     D1
+0800091C  48C1      1137          ext.l     D1
+0800091E  2F01      1138          move.l    D1,-(A7)
+08000920  2F0A      1139          move.l    A2,-(A7)
+08000922  4E93      1140          jsr       (A3)
+08000924  504F      1141          addq.w    #8,A7
+08000926  5286      1142          addq.l    #1,D6
+08000928  6002      1143          bra.s     doprint_112
+                    1144   doprint_115:
+0800092A  6002      1145          bra.s     doprint_113
+                    1146   doprint_112:
+0800092C  60B2      1147          bra       doprint_110
+                    1148   doprint_113:
+0800092E  4A2E FFCD 1149          tst.b     -51(A6)
+08000932  6700 0030 1150          beq       doprint_125
+08000936  1004      1151          move.b    D4,D0
+08000938  4880      1152          ext.w     D0
+0800093A  48C0      1153          ext.l     D0
+0800093C  D0AE FFFC 1154          add.l     -4(A6),D0
+08000940  D087      1155          add.l     D7,D0
+08000942  1D40 FFD1 1156          move.b    D0,-47(A6)
+                    1157   doprint_123:
+08000946  102E FFD1 1158          move.b    -47(A6),D0
+0800094A  4880      1159          ext.w     D0
+0800094C  48C0      1160          ext.l     D0
+0800094E  220D      1161          move.l    A5,D1
+08000950  534D      1162          subq.w    #1,A5
+08000952  B081      1163          cmp.l     D1,D0
+08000954  6C0E      1164          bge.s     doprint_125
+08000956  4878 0020 1165          pea       32
+0800095A  2F0A      1166          move.l    A2,-(A7)
+0800095C  4E93      1167          jsr       (A3)
+0800095E  504F      1168          addq.w    #8,A7
+08000960  5386      1169          subq.l    #1,D6
+08000962  60E2      1170          bra       doprint_123
+                    1171   doprint_125:
+08000964  6014      1172          bra.s     doprint_81
+                    1173   doprint_80:
+08000966  206E 000C 1174          move.l    12(A6),A0
+0800096A  1210      1175          move.b    (A0),D1
+0800096C  4881      1176          ext.w     D1
+0800096E  48C1      1177          ext.l     D1
+08000970  2F01      1178          move.l    D1,-(A7)
+08000972  2F0A      1179          move.l    A2,-(A7)
+08000974  4E93      1180          jsr       (A3)
+08000976  504F      1181          addq.w    #8,A7
+08000978  5286      1182          addq.l    #1,D6
+                    1183   doprint_81:
+0800097A  52AE 000C 1184          addq.l    #1,12(A6)
+                    1185   doprint_2:
+0800097E  6000 FA0A 1186          bra       doprint_1
+                    1187   doprint_3:
+08000982  4A92      1188          tst.l     (A2)
+08000984  6710      1189          beq.s     doprint_126
+08000986  4201      1190          clr.b     D1
+08000988  C2BC 0000 1191          and.l     #255,D1
+0800098C  00FF      
+0800098E  2F01      1192          move.l    D1,-(A7)
+08000990  2F0A      1193          move.l    A2,-(A7)
+08000992  4E93      1194          jsr       (A3)
+08000994  504F      1195          addq.w    #8,A7
+                    1196   doprint_126:
+08000996  2006      1197          move.l    D6,D0
+08000998  4CDF 3CFC 1198          movem.l   (A7)+,D2/D3/D4/D5/D6/D7/A2/A3/A4/A5
+0800099C  4E5E      1199          unlk      A6
+0800099E  4E75      1200          rts
+                    1201   @itoa_convert:
+080009A0  4E56 0000 1202          link      A6,#0
+080009A4  48E7 3C00 1203          movem.l   D2/D3/D4/D5,-(A7)
+080009A8  242E 0008 1204          move.l    8(A6),D2
+080009AC  262E 0010 1205          move.l    16(A6),D3
+080009B0  2A2E 000C 1206          move.l    12(A6),D5
+080009B4  2F05      1207          move.l    D5,-(A7)
+080009B6  2F03      1208          move.l    D3,-(A7)
+080009B8  4EB9 0800 1209          jsr       ULDIV
+080009BC  0C1E      
+080009BE  202F 0004 1210          move.l    4(A7),D0
+080009C2  504F      1211          addq.w    #8,A7
+080009C4  2800      1212          move.l    D0,D4
+080009C6  BA83      1213          cmp.l     D3,D5
+080009C8  6520      1214          blo.s     @itoa_convert_1
+080009CA  2F03      1215          move.l    D3,-(A7)
+080009CC  2F05      1216          move.l    D5,-(A7)
+080009CE  2F03      1217          move.l    D3,-(A7)
+080009D0  4EB9 0800 1218          jsr       ULDIV
+080009D4  0C1E      
+080009D6  2217      1219          move.l    (A7),D1
+080009D8  504F      1220          addq.w    #8,A7
+080009DA  2F01      1221          move.l    D1,-(A7)
+080009DC  2F02      1222          move.l    D2,-(A7)
+080009DE  4EB9 0800 1223          jsr       @itoa_convert
+080009E2  09A0      
+080009E4  DEFC 000C 1224          add.w     #12,A7
+080009E8  2400      1225          move.l    D0,D2
+                    1226   @itoa_convert_1:
+080009EA  0C84 0000 1227          cmp.l     #9,D4
+080009EE  0009      
+080009F0  6E0E      1228          bgt.s     @itoa_convert_3
+080009F2  2004      1229          move.l    D4,D0
+080009F4  7230      1230          moveq     #48,D1
+080009F6  C2BC 0000 1231          and.l     #255,D1
+080009FA  00FF      
+080009FC  D081      1232          add.l     D1,D0
+080009FE  6012      1233          bra.s     @itoa_convert_4
+                    1234   @itoa_convert_3:
+08000A00  2004      1235          move.l    D4,D0
+08000A02  7261      1236          moveq     #97,D1
+08000A04  C2BC 0000 1237          and.l     #255,D1
+08000A08  00FF      
+08000A0A  D081      1238          add.l     D1,D0
+08000A0C  0480 0000 1239          sub.l     #10,D0
+08000A10  000A      
+                    1240   @itoa_convert_4:
+08000A12  2042      1241          move.l    D2,A0
+08000A14  1080      1242          move.b    D0,(A0)
+08000A16  2002      1243          move.l    D2,D0
+08000A18  5280      1244          addq.l    #1,D0
+08000A1A  4CDF 003C 1245          movem.l   (A7)+,D2/D3/D4/D5
+08000A1E  4E5E      1246          unlk      A6
+08000A20  4E75      1247          rts
+                    1248   _ltoa:
+08000A22  4E56 0000 1249          link      A6,#0
+08000A26  48E7 3C00 1250          movem.l   D2/D3/D4/D5,-(A7)
+08000A2A  242E 0008 1251          move.l    8(A6),D2
+08000A2E  262E 000C 1252          move.l    12(A6),D3
+08000A32  2A2E 0010 1253          move.l    16(A6),D5
+08000A36  2803      1254          move.l    D3,D4
+08000A38  0C85 0000 1255          cmp.l     #2,D5
+08000A3C  0002      
+08000A3E  6D08      1256          blt.s     ltoa_3
+08000A40  0C85 0000 1257          cmp.l     #36,D5
+08000A44  0024      
+08000A46  6F06      1258          ble.s     ltoa_1
+                    1259   ltoa_3:
+08000A48  2003      1260          move.l    D3,D0
+08000A4A  6000 0056 1261          bra       ltoa_4
+                    1262   ltoa_1:
+08000A4E  0C85 0000 1263          cmp.l     #10,D5
+08000A52  000A      
+08000A54  6600 0034 1264          bne       ltoa_5
+08000A58  0C82 0000 1265          cmp.l     #0,D2
+08000A5C  0000      
+08000A5E  6C2A      1266          bge.s     ltoa_5
+08000A60  2002      1267          move.l    D2,D0
+08000A62  4480      1268          neg.l     D0
+08000A64  2400      1269          move.l    D0,D2
+08000A66  0C82 0000 1270          cmp.l     #0,D2
+08000A6A  0000      
+08000A6C  6C14      1271          bge.s     ltoa_7
+08000A6E  4879 0800 1272          pea       @itoa_1.L
+08000A72  0D12      
+08000A74  2F03      1273          move.l    D3,-(A7)
+08000A76  4EB9 0800 1274          jsr       _strcpy
+08000A7A  0C0E      
+08000A7C  504F      1275          addq.w    #8,A7
+08000A7E  2003      1276          move.l    D3,D0
+08000A80  6020      1277          bra.s     ltoa_4
+                    1278   ltoa_7:
+08000A82  2044      1279          move.l    D4,A0
+08000A84  5284      1280          addq.l    #1,D4
+08000A86  10BC 002D 1281          move.b    #45,(A0)
+                    1282   ltoa_5:
+08000A8A  2F05      1283          move.l    D5,-(A7)
+08000A8C  2F02      1284          move.l    D2,-(A7)
+08000A8E  2F04      1285          move.l    D4,-(A7)
+08000A90  4EB9 0800 1286          jsr       @itoa_convert
+08000A94  09A0      
+08000A96  DEFC 000C 1287          add.w     #12,A7
+08000A9A  2800      1288          move.l    D0,D4
+08000A9C  2044      1289          move.l    D4,A0
+08000A9E  4210      1290          clr.b     (A0)
+08000AA0  2003      1291          move.l    D3,D0
+                    1292   ltoa_4:
+08000AA2  4CDF 003C 1293          movem.l   (A7)+,D2/D3/D4/D5
+08000AA6  4E5E      1294          unlk      A6
+08000AA8  4E75      1295          rts
+                    1296   _ultoa:
+08000AAA  4E56 0000 1297          link      A6,#0
+08000AAE  48E7 3800 1298          movem.l   D2/D3/D4,-(A7)
+08000AB2  262E 0010 1299          move.l    16(A6),D3
+08000AB6  282E 000C 1300          move.l    12(A6),D4
+08000ABA  2404      1301          move.l    D4,D2
+08000ABC  0C83 0000 1302          cmp.l     #2,D3
+08000AC0  0002      
+08000AC2  6D08      1303          blt.s     ultoa_3
+08000AC4  0C83 0000 1304          cmp.l     #36,D3
+08000AC8  0024      
+08000ACA  6F04      1305          ble.s     ultoa_1
+                    1306   ultoa_3:
+08000ACC  2004      1307          move.l    D4,D0
+08000ACE  601A      1308          bra.s     ultoa_4
+                    1309   ultoa_1:
+08000AD0  2F03      1310          move.l    D3,-(A7)
+08000AD2  2F2E 0008 1311          move.l    8(A6),-(A7)
+08000AD6  2F02      1312          move.l    D2,-(A7)
+08000AD8  4EB9 0800 1313          jsr       @itoa_convert
+08000ADC  09A0      
+08000ADE  DEFC 000C 1314          add.w     #12,A7
+08000AE2  2400      1315          move.l    D0,D2
+08000AE4  2042      1316          move.l    D2,A0
+08000AE6  4210      1317          clr.b     (A0)
+08000AE8  2004      1318          move.l    D4,D0
+                    1319   ultoa_4:
+08000AEA  4CDF 001C 1320          movem.l   (A7)+,D2/D3/D4
+08000AEE  4E5E      1321          unlk      A6
+08000AF0  4E75      1322          rts
+                    1323   _itoa:
+08000AF2  4E56 0000 1324          link      A6,#0
+08000AF6  2F2E 0010 1325          move.l    16(A6),-(A7)
+08000AFA  2F2E 000C 1326          move.l    12(A6),-(A7)
+08000AFE  2F2E 0008 1327          move.l    8(A6),-(A7)
+08000B02  4EB9 0800 1328          jsr       _ltoa
+08000B06  0A22      
+08000B08  DEFC 000C 1329          add.w     #12,A7
+08000B0C  4E5E      1330          unlk      A6
+08000B0E  4E75      1331          rts
+                    1332   ULMUL:
+08000B10  4E56 0000 1333          link    A6,#0
+08000B14  48E7 C000 1334          movem.l D0/D1,-(A7)
+08000B18  222E 0008 1335          move.l  8(A6),D1
+08000B1C  202E 000C 1336          move.l  12(A6),D0
+08000B20  602C      1337          bra.s   lmul_3
+                    1338   LMUL:
+08000B22  4E56 0000 1339          link    A6,#0
+08000B26  48E7 C000 1340          movem.l D0/D1,-(A7)
+08000B2A  222E 0008 1341          move.l  8(A6),D1
+08000B2E  202E 000C 1342          move.l  12(A6),D0
+08000B32  4A80      1343          tst.l   D0
+08000B34  6A0A      1344          bpl.s   lmul_1
+08000B36  4480      1345          neg.l   D0
+08000B38  4A81      1346          tst.l   D1
+08000B3A  6A0A      1347          bpl.s   lmul_2
+08000B3C  4481      1348          neg.l   D1
+08000B3E  600E      1349          bra.s   lmul_3
+                    1350   lmul_1:
+08000B40  4A81      1351          tst.l   D1
+08000B42  6A0A      1352          bpl.s   lmul_3
+08000B44  4481      1353          neg.l   D1
+                    1354   lmul_2:
+08000B46  6114      1355          bsr.s   domul
+08000B48  4481      1356          neg.l   D1
+08000B4A  4080      1357          negx.l  D0
+08000B4C  6002      1358          bra.s   lmul_4
+                    1359   lmul_3:
+08000B4E  610C      1360          bsr.s   domul
+                    1361   lmul_4:
+08000B50  2D41 0008 1362          move.l  D1,8(A6)
+08000B54  4CDF 0003 1363          movem.l (A7)+,D0/D1
+08000B58  4E5E      1364          unlk    A6
+08000B5A  4E75      1365          rts
+                    1366   domul:
+08000B5C  0C81 0000 1367          cmpi.l  #$FFFF,D1
+08000B60  FFFF      
+08000B62  620C      1368          bhi.s   domul_1
+08000B64  0C80 0000 1369          cmpi.l  #$FFFF,D0
+08000B68  FFFF      
+08000B6A  620E      1370          bhi.s   domul_2
+08000B6C  C2C0      1371          mulu    D0,D1
+08000B6E  4E75      1372          rts
+                    1373   domul_1:
+08000B70  0C80 0000 1374          cmpi.l  #$FFFF,D0
+08000B74  FFFF      
+08000B76  6218      1375          bhi.s   domul_4
+08000B78  6002      1376          bra.s   domul_3
+                    1377   domul_2
+08000B7A  C141      1378          exg     D0,D1
+                    1379   domul_3:
+08000B7C  2F02      1380          move.l  D2,-(A7)
+08000B7E  2401      1381          move.l  D1,D2
+08000B80  4842      1382          swap    D2
+08000B82  C2C0      1383          mulu    D0,D1
+08000B84  C4C0      1384          mulu    D0,D2
+08000B86  4842      1385          swap    D2
+08000B88  4242      1386          clr.w   D2
+08000B8A  D282      1387          add.l   D2,D1
+08000B8C  241F      1388          move.l  (A7)+,D2
+08000B8E  4E75      1389          rts
+                    1390   domul_4:
+08000B90  48E7 3000 1391          movem.l D2/D3,-(A7)
+08000B94  2401      1392          move.l  D1,D2
+08000B96  2601      1393          move.l  D1,D3
+08000B98  C2C0      1394          mulu    D0,D1
+08000B9A  4842      1395          swap    D2
+08000B9C  C4C0      1396          mulu    D0,D2
+08000B9E  4840      1397          swap    D0
+08000BA0  C6C0      1398          mulu    D0,D3
+08000BA2  D483      1399          add.l   D3,D2
+08000BA4  4842      1400          swap    D2
+08000BA6  4242      1401          clr.w   D2
+08000BA8  D282      1402          add.l   D2,D1
+08000BAA  4CDF 000C 1403          movem.l (A7)+,D2/D3
+08000BAE  4E75      1404          rts
+                    1405   _strlen:
+08000BB0  206F 0004 1406          move.l    (4,A7),A0
+08000BB4  2248      1407          move.l    A0,A1
+                    1408   strlen_1:
+08000BB6  4A19      1409          tst.b     (A1)+
+08000BB8  66FC      1410          bne       strlen_1
+08000BBA  2009      1411          move.l    A1,D0
+08000BBC  9088      1412          sub.l     A0,D0
+08000BBE  5380      1413          subq.l    #1,D0
+08000BC0  4E75      1414          rts
+                    1415   _putch:
+08000BC2  4E56 0000 1416          link      A6,#0
+08000BC6  2F02      1417          move.l    D2,-(A7)
+08000BC8  242E 0008 1418          move.l    8(A6),D2
+08000BCC  0C82 0000 1419          cmp.l     #10,D2
+08000BD0  000A      
+08000BD2  660C      1420          bne.s     putch_1
+08000BD4  4878 000D 1421          pea       13
+08000BD8  4EB9 0800 1422          jsr       __putch
+08000BDC  013E      
+08000BDE  584F      1423          addq.w    #4,A7
+                    1424   putch_1:
+08000BE0  2F02      1425          move.l    D2,-(A7)
+08000BE2  4EB9 0800 1426          jsr       __putch
+08000BE6  013E      
+08000BE8  584F      1427          addq.w    #4,A7
+08000BEA  2002      1428          move.l    D2,D0
+08000BEC  241F      1429          move.l    (A7)+,D2
+08000BEE  4E5E      1430          unlk      A6
+08000BF0  4E75      1431          rts
+                    1432   _toupper:
+08000BF2  202F 0004 1433          move.l    4(A7),D0
+08000BF6  0C80 0000 1434          cmp.l     #'a',D0
+08000BFA  0061      
+08000BFC  6D0E      1435          blt.s     toupper_1
+08000BFE  0C80 0000 1436          cmp.l     #'z',D0
+08000C02  007A      
+08000C04  6E06      1437          bgt.s     toupper_1
+08000C06  0480 0000 1438          sub.l     #$20,D0
+08000C0A  0020      
+                    1439   toupper_1:
+08000C0C  4E75      1440          rts
+                    1441   _strcpy:
+08000C0E  206F 0004 1442          move.l    (4,A7),A0
+08000C12  226F 0008 1443          move.l    (8,A7),A1
+08000C16  2008      1444          move.l    A0,D0
+                    1445   strcpy_1:
+08000C18  10D9      1446          move.b    (A1)+,(A0)+
+08000C1A  66FC      1447          bne.s     strcpy_1
+08000C1C  4E75      1448          rts
+                    1449   ULDIV:
+08000C1E  4E56 0000 1450          link    A6,#0
+08000C22  48E7 C000 1451          movem.l D0/D1,-(A7)
+08000C26  222E 0008 1452          move.l  8(A6),D1
+08000C2A  202E 000C 1453          move.l  12(A6),D0
+08000C2E  6036      1454          bra.s   ldiv_3
+                    1455   LDIV:
+08000C30  4E56 0000 1456          link    A6,#0
+08000C34  48E7 C000 1457          movem.l D0/D1,-(A7)
+08000C38  222E 0008 1458          move.l  8(A6),D1
+08000C3C  202E 000C 1459          move.l  12(A6),D0
+08000C40  4A80      1460          tst.l   D0
+08000C42  6A0E      1461          bpl.s   ldiv_1
+08000C44  4480      1462          neg.l   D0
+08000C46  4A81      1463          tst.l   D1
+08000C48  6A14      1464          bpl.s   ldiv_2
+08000C4A  4481      1465          neg.l   D1
+08000C4C  612A      1466          bsr.s   dodiv
+08000C4E  4481      1467          neg.l   D1
+08000C50  6016      1468          bra.s   ldiv_4
+                    1469   ldiv_1:
+08000C52  4A81      1470          tst.l   D1
+08000C54  6A10      1471          bpl.s   ldiv_3
+08000C56  4481      1472          neg.l   D1
+08000C58  611E      1473          bsr.s   dodiv
+08000C5A  4480      1474          neg.l   D0
+08000C5C  600A      1475          bra.s   ldiv_4
+                    1476   ldiv_2:
+08000C5E  6118      1477          bsr.s   dodiv
+08000C60  4480      1478          neg.l   D0
+08000C62  4481      1479          neg.l   D1
+08000C64  6002      1480          bra.s   ldiv_4
+                    1481   ldiv_3:
+08000C66  6110      1482          bsr.s   dodiv
+                    1483   ldiv_4:
+08000C68  2D40 0008 1484          move.l  D0,8(A6)
+08000C6C  2D41 000C 1485          move.l  D1,12(A6)
+08000C70  4CDF 0003 1486          movem.l (A7)+,D0/D1
+08000C74  4E5E      1487          unlk    A6
+08000C76  4E75      1488          rts
+                    1489   dodiv:
+08000C78  0C81 0000 1490          cmpi.l  #$FFFF,D1
+08000C7C  FFFF      
+08000C7E  6236      1491          bhi.s   dodiv_2
+08000C80  0C80 0000 1492          cmpi.l  #$FFFF,D0
+08000C84  FFFF      
+08000C86  6210      1493          bhi.s   dodiv_1
+08000C88  80C1      1494          divu    D1,D0
+08000C8A  2200      1495          move.l  D0,D1
+08000C8C  4241      1496          clr.w   D1
+08000C8E  4841      1497          swap    D1
+08000C90  0280 0000 1498          andi.l  #$FFFF,D0
+08000C94  FFFF      
+08000C96  4E75      1499          rts
+                    1500   dodiv_1:
+08000C98  48A7 A000 1501          movem.w D0/D2,-(A7)
+08000C9C  4240      1502          clr.w   D0
+08000C9E  4840      1503          swap    D0
+08000CA0  80C1      1504          divu    D1,D0
+08000CA2  3400      1505          move.w  D0,D2
+08000CA4  301F      1506          move.w  (A7)+,D0
+08000CA6  80C1      1507          divu    D1,D0
+08000CA8  4840      1508          swap    D0
+08000CAA  4281      1509          clr.l   D1
+08000CAC  3200      1510          move.w  D0,D1
+08000CAE  3002      1511          move.w  D2,D0
+08000CB0  4840      1512          swap    D0
+08000CB2  341F      1513          move.w  (A7)+,D2
+08000CB4  4E75      1514          rts
+                    1515   dodiv_2:
+08000CB6  48E7 3800 1516          movem.l D2/D3/D4,-(A7)
+08000CBA  2401      1517          move.l  D1,D2
+08000CBC  4242      1518          clr.w   D2
+08000CBE  4842      1519          swap    D2
+08000CC0  5282      1520          addq.l  #1,D2
+08000CC2  2600      1521          move.l  D0,D3
+08000CC4  2801      1522          move.l  D1,D4
+08000CC6  2202      1523          move.l  D2,D1
+08000CC8  61CE      1524          bsr.s   dodiv_1
+08000CCA  2204      1525          move.l  D4,D1
+08000CCC  82C2      1526          divu    D2,D1
+08000CCE  80C1      1527          divu    D1,D0
+08000CD0  0280 0000 1528          andi.l  #$FFFF,D0
+08000CD4  FFFF      
+                    1529   dodiv_3:
+08000CD6  2204      1530          move.l  D4,D1
+08000CD8  2404      1531          move.l  D4,D2
+08000CDA  4842      1532          swap    D2
+08000CDC  C2C0      1533          mulu    D0,D1
+08000CDE  C4C0      1534          mulu    D0,D2
+08000CE0  4842      1535          swap    D2
+08000CE2  D282      1536          add.l   D2,D1
+08000CE4  9283      1537          sub.l   D3,D1
+08000CE6  620A      1538          bhi.s   dodiv_4
+08000CE8  4481      1539          neg.l   D1
+08000CEA  B881      1540          cmp.l   D1,D4
+08000CEC  6208      1541          bhi.s   dodiv_5
+08000CEE  5280      1542          addq.l  #1,D0
+08000CF0  60E4      1543          bra.s   dodiv_3
+                    1544   dodiv_4:
+08000CF2  5380      1545          subq.l  #1,D0
+08000CF4  60E0      1546          bra.s   dodiv_3
+                    1547   dodiv_5:
+08000CF6  4CDF 001C 1548          movem.l (A7)+,D2/D3/D4
+08000CFA  4E75      1549          rts
+                    1550          section   const
+08000CFC            1551                   align
+                    1552   
+                    1553   
+                    1554   @memory~1_1:
+08000CFC  5275 6E6E 1555          dc.b      82,117,110,110,105,110,103,32,68,101,109,111
+08000D00  696E 6720 
+08000D04  4465 6D6F 
+08000D08  2050 726F 1556          dc.b      32,80,114,111,103,114,97,109,0
+08000D0C  6772 616D 
+08000D10  00        
+                    1557   @itoa_1:
+08000D12  2D32 3134 1558          dc.b      45,50,49,52,55,52,56,51,54,52,56,0
+08000D16  3734 3833 
+08000D1A  3634 3800 
+                    1559   __ctype:
+08000D1E  0040 4040 1560          dc.b      0,64,64,64,64,64,64,64,64,64,80,80,80,80,80
+08000D22  4040 4040 
+08000D26  4040 5050 
+08000D2A  5050 50   
+08000D2D  4040 4040 1561          dc.b      64,64,64,64,64,64,64,64,64,64,64,64,64,64,64
+08000D31  4040 4040 
+08000D35  4040 4040 
+08000D39  4040 40   
+08000D3C  4040 40D0 1562          dc.b      64,64,64,208,160,160,160,160,160,160,160,160
+08000D40  A0A0 A0A0 
+08000D44  A0A0 A0A0 
+08000D48  A0A0 A0A0 1563          dc.b      160,160,160,160,160,160,160,140,140,140,140
+08000D4C  A0A0 A08C 
+08000D50  8C8C 8C   
+08000D53  8C8C 8C8C 1564          dc.b      140,140,140,140,140,140,160,160,160,160,160
+08000D57  8C8C A0A0 
+08000D5B  A0A0 A0   
+08000D5E  A0A0 8A8A 1565          dc.b      160,160,138,138,138,138,138,138,130,130,130
+08000D62  8A8A 8A8A 
+08000D66  8282 82   
+08000D69  8282 8282 1566          dc.b      130,130,130,130,130,130,130,130,130,130,130
+08000D6D  8282 8282 
+08000D71  8282 82   
+08000D74  8282 8282 1567          dc.b      130,130,130,130,130,130,160,160,160,160,160
+08000D78  8282 A0A0 
+08000D7C  A0A0 A0   
+08000D7F  A089 8989 1568          dc.b      160,137,137,137,137,137,137,129,129,129,129
+08000D83  8989 8981 
+08000D87  8181 81   
+08000D8A  8181 8181 1569          dc.b      129,129,129,129,129,129,129,129,129,129,129
+08000D8E  8181 8181 
+08000D92  8181 81   
+08000D95  8181 8181 1570          dc.b      129,129,129,129,129,160,160,160,160,64,0,0,0
+08000D99  81A0 A0A0 
+08000D9D  A040 0000 
+08000DA1  00        
+08000DA2  0000 0000 1571          dc.b      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+08000DA6  0000 0000 
+08000DAA  0000 0000 
+08000DAE  0000 0000 
+08000DB2  0000 0000 
+08000DB6  0000      
+08000DB8  0000 0000 1572          dc.b      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+08000DBC  0000 0000 
+08000DC0  0000 0000 
+08000DC4  0000 0000 
+08000DC8  0000 0000 
+08000DCC  0000      
+08000DCE  0000 0000 1573          dc.b      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+08000DD2  0000 0000 
+08000DD6  0000 0000 
+08000DDA  0000 0000 
+08000DDE  0000 0000 
+08000DE2  0000      
+08000DE4  0000 0000 1574          dc.b      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+08000DE8  0000 0000 
+08000DEC  0000 0000 
+08000DF0  0000 0000 
+08000DF4  0000 0000 
+08000DF8  0000      
+08000DFA  0000 0000 1575          dc.b      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+08000DFE  0000 0000 
+08000E02  0000 0000 
+08000E06  0000 0000 
+08000E0A  0000 0000 
+08000E0E  0000      
+08000E10  0000 0000 1576          dc.b      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+08000E14  0000 0000 
+08000E18  0000 0000 
+08000E1C  0000 00   
+                    1577          section   data
+08000E20            1578                   align
+                    1579   
+                    1580   *********************************************************************************************************************************************************
+                    1581   * Section for Initialised Data (in theory should be copied to Ram at startup) but is part of program code as we copy whole program to ram at startup
+                    1582   ********************************************************************************************************************************************************
+                    1583   
+          0800 0E20 1584   DataStart       equ       *
+08000E20            1585   __ungetbuf:     ds.l      1                    ungetbuffer for stdio functions
+08000E24            1586   __allocp:       ds.l      1                    start of free memory block list
+08000E28            1587   __heap:         ds.l      1                    begin of free memory
+                    1588   
+                    1589   
+                    1590          section   bss
+08000E2C            1591                   align
+                    1592   
+          0800 0E2C 1593   DataEnd         equ       *                    this label will equate to the address of the last byte of global variable in it
+          0000 000C 1594   DataLength      equ       DataEnd-DataStart    length of data needed to copy to Ram on bootup
+                    1595   
+                    1596   *********************************************************************************************************
+                    1597   * Section for uninitialised Data which is set to zero, i.e. we should set this space to zero at starup
+                    1598   *********************************************************************************************************
+          0800 0E2C 1599   BssStart       equ       *
+                    1600   
+                    1601   _i:
+08000E2C            1602          ds.b      4
+                    1603   _x:
+08000E30            1604          ds.b      4
+                    1605   _y:
+08000E34            1606          ds.b      4
+                    1607   _z:
+08000E38            1608          ds.b      4
+                    1609   _PortA_Count:
+08000E3C            1610          ds.b      4
+                    1611   _Timer1Count:
+08000E40            1612          ds.b      1
+                    1613   _Timer2Count:
+08000E42            1614          ds.b      1
+                    1615   _Timer3Count:
+08000E44            1616          ds.b      1
+                    1617   _Timer4Count:
+08000E46            1618          ds.b      1
+                    1619   _RamWriter:
+08000E48            1620          ds.b      4
+                    1621   _start_address:
+08000E4C            1622          ds.b      4
+                    1623   _end_address:
+08000E50            1624          ds.b      4
+                    1625   _test_type:
+08000E54            1626          ds.b      4
+                    1627   _user_data:
+08000E58            1628          ds.b      4
+                    1629   _current_address:
+08000E5C            1630          ds.b      4
+                    1631   _intermediate_address:
+08000E60            1632          ds.b      4
+                    1633   _address_increment:
+08000E64            1634          ds.b      4
+                    1635   _address_length_flag:
+08000E68            1636          ds.b      4
+                    1637   _read_write_test:
+08000E6C            1638          ds.b      4
+                    1639          section   heap
+08000E70            1640                  align
+                    1641   
+          0800 0E70 1642   BssEnd         equ       *
+          0000 0044 1643   BssLength      equ       BssEnd-BssStart       length of zeroed data needed to copy to Ram on bootup
+                    1644   
+                    1645   *********************************************************************************************************
+                    1646   * Section for Heap
+                    1647   *********************************************************************************************************
+                    1648   
+          0800 0E70 1649   heap           equ       *
+08000E70            1650                  align
+          0800 0000
+
+Assembly errors: 0

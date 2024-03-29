@@ -1,1 +1,1 @@
-# SPI_Controller
+Dram memory is commonly used in 16/32 bit computers instead of Sram when large amounts of memory are required (e.g. multi-megabytes). However, DRAM is more complicated to interface to the CPU and requires a dedicated controller to handle the interface, timing, initialization, and refreshing of DRAM memory chips. In this project we designed a basic DDR controller.
